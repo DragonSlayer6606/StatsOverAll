@@ -14,8 +14,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffectType;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
+import java.io.*;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.Objects;
@@ -35,7 +34,7 @@ public final class StatsOverAll extends JavaPlugin {
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this, () -> {
             try {
                 updateStats();
-            } catch (SQLException e) {
+            } catch (SQLException | IOException e) {
                 throw new RuntimeException(e);
             }
         }, 0, 50);
@@ -51,7 +50,7 @@ public final class StatsOverAll extends JavaPlugin {
                 try {
                     p.sendMessage("command has ran");
                     p.getInventory().addItem(CreateAdvancedItem(inv.getItem(0).getAmount(), inv.getItem(1).getType(), inv.getItem(2).getItemMeta().getDisplayName(), (ArrayList<String>) inv.getItem(3).getItemMeta().getLore(), true, inv.getItem(4).getAmount(), inv.getItem(5).getAmount(), inv.getItem(6).getAmount(), inv.getItem(7).getAmount(), inv.getItem(8).getAmount()));
-                } catch (SQLException e) {
+                } catch (SQLException | IOException e) {
                     throw new RuntimeException(e);
                 }
             }
@@ -59,7 +58,7 @@ public final class StatsOverAll extends JavaPlugin {
         return true;
     }
 
-    public ItemStack CreateAdvancedItem(int Amount, Material material, String DisplayName, ArrayList<String> lore, Boolean unbreakable, int SPEED, int HASTE, int HEALTH, int DEFENSE, int STRENGTH) throws SQLException {
+    public ItemStack CreateAdvancedItem(int Amount, Material material, String DisplayName, ArrayList<String> lore, Boolean unbreakable, int SPEED, int HASTE, int HEALTH, int DEFENSE, int STRENGTH) throws SQLException, IOException {
         ItemStack is = new ItemStack(material, Amount);
         ItemMeta isMeta = is.getItemMeta();
         assert isMeta != null;
@@ -75,7 +74,7 @@ public final class StatsOverAll extends JavaPlugin {
         isMeta.setLore(lore);
         isMeta.setUnbreakable(unbreakable);
         is.setItemMeta(isMeta);
-        byte[] serialize = SerializationUtils.serialize(new ItemWrapper(is));
+        byte[] serialize = convertToBytes(is);
         PreparedStatement ps = connection.prepareStatement("INSERT INTO customitemstacks VALUES (?)");
         InputStream inputStream = new ByteArrayInputStream(serialize);
         ps.setBinaryStream(1, inputStream);
@@ -83,18 +82,18 @@ public final class StatsOverAll extends JavaPlugin {
         ps.close();
         return is;
     }
-    public void updateStats() throws SQLException {
+    public void updateStats() throws SQLException, IOException {
         String query = "SELECT itemdata, speed, haste, health, defense, strength FROM customitemstacks";
         
         PreparedStatement psget = connection.prepareStatement(query, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
         ResultSet rs = psget.executeQuery();
         for (Player p:
                 getServer().getOnlinePlayers()) {
-            Object boots = SerializationUtils.serialize(new ItemWrapper(p.getInventory().getBoots()));
-            Object leggings = SerializationUtils.serialize(new ItemWrapper(p.getInventory().getLeggings()));
-            Object chestplate = SerializationUtils.serialize(new ItemWrapper(p.getInventory().getChestplate()));
-            Object helmet = SerializationUtils.serialize(new ItemWrapper(p.getInventory().getHelmet()));
-            Object heldItem = SerializationUtils.serialize(new ItemWrapper(p.getItemInUse()));
+            byte[] boots = convertToBytes(p.getInventory().getBoots());
+            byte[] leggings = convertToBytes(p.getInventory().getLeggings());
+            byte[] chestplate = convertToBytes(p.getInventory().getChestplate());
+            byte[] helmet = convertToBytes(p.getInventory().getHelmet());
+            byte[] heldItem = convertToBytes(p.getItemInUse());
             int playerSpeed = 0;
             int playerHaste = 0;
             int playerHealth = 0;
@@ -143,6 +142,14 @@ public final class StatsOverAll extends JavaPlugin {
             p.addPotionEffect(PotionEffectType.HEALTH_BOOST.createEffect(Integer.MAX_VALUE, playerHealth/4));
             p.addPotionEffect(PotionEffectType.DAMAGE_RESISTANCE.createEffect(Integer.MAX_VALUE, playerDefense/4));
             p.addPotionEffect(PotionEffectType.INCREASE_DAMAGE.createEffect(Integer.MAX_VALUE, playerStrength/4));
+        }
+    }
+
+    private byte[] convertToBytes(Object object) throws IOException {
+        try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
+             ObjectOutputStream out = new ObjectOutputStream(bos)) {
+            out.writeObject(object);
+            return bos.toByteArray();
         }
     }
 }
