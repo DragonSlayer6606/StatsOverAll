@@ -1,0 +1,8 @@
+name: StatsOverAll
+version: '${project.version}'
+main: gmail.aryanj1010.statsoverall.StatsOverAll
+api-version: 1.19
+commands:
+  create:
+    description: creates an item from inventory
+    usage: /<command>
