@@ -117,12 +117,4 @@ public final class StatsOverAll extends JavaPlugin {
             p.addPotionEffect(PotionEffectType.INCREASE_DAMAGE.createEffect(Integer.MAX_VALUE, playerStrength/4));
         }
     }
-
-    private byte[] convertToBytes(Object object) throws IOException {
-        try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
-             ObjectOutputStream out = new ObjectOutputStream(bos)) {
-            out.writeObject(object);
-            return bos.toByteArray();
-        }
-    }
 }
