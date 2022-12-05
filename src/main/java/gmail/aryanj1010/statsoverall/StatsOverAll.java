@@ -1,9 +1,10 @@
 package gmail.aryanj1010.statsoverall;
 
 
-import org.apache.commons.lang3.SerializationUtils;
+
 import org.bukkit.Bukkit;
-import org.bukkit.Color;
+import org.bukkit.ChatColor;
+
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -14,30 +15,21 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffectType;
 
-import java.io.*;
-import java.sql.*;
+
 import java.util.ArrayList;
-import java.util.Objects;
+import java.util.HashMap;
 
 
 public final class StatsOverAll extends JavaPlugin {
-    String url = "jdbc:postgresql://localhost:5432/StatsPlugin?user=postgres&password=154150061";
-    Object driver = Class.forName("org.postgresql.Driver").newInstance();
-    Connection connection = DriverManager.getConnection(url);
 
-    public StatsOverAll() throws SQLException, ClassNotFoundException, InstantiationException, IllegalAccessException {
-    }
+    HashMap<ItemStack, int[]> itemsAndStats = new HashMap<>();
+    ArrayList<ItemStack> items = new ArrayList<>();
 
     @Override
     public void onEnable() {
+        Bukkit.getScheduler().scheduleSyncRepeatingTask(this, this::updateStats, 0, 50);
 
-        Bukkit.getScheduler().scheduleSyncRepeatingTask(this, () -> {
-            try {
-                updateStats();
-            } catch (SQLException | IOException e) {
-                throw new RuntimeException(e);
-            }
-        }, 0, 50);
+        
     }
 
     @Override
@@ -47,18 +39,24 @@ public final class StatsOverAll extends JavaPlugin {
                 Player p = (Player) sender;
                 Inventory inv = p.getInventory();
 
-                try {
                     p.sendMessage("command has ran");
-                    p.getInventory().addItem(CreateAdvancedItem(inv.getItem(0).getAmount(), inv.getItem(1).getType(), inv.getItem(2).getItemMeta().getDisplayName(), (ArrayList<String>) inv.getItem(3).getItemMeta().getLore(), true, inv.getItem(4).getAmount(), inv.getItem(5).getAmount(), inv.getItem(6).getAmount(), inv.getItem(7).getAmount(), inv.getItem(8).getAmount()));
-                } catch (SQLException | IOException e) {
-                    throw new RuntimeException(e);
-                }
+                    p.getInventory().addItem(CreateAdvancedItem(
+                            inv.getItem(0).getAmount(),
+                            inv.getItem(1).getType(),
+                            inv.getItem(2).getItemMeta().getDisplayName(),
+                            (ArrayList<String>) inv.getItem(3).getItemMeta().getLore(),
+                            true,
+                            inv.getItem(4).getAmount(),
+                            inv.getItem(5).getAmount(),
+                            inv.getItem(6).getAmount(),
+                            inv.getItem(7).getAmount(),
+                            inv.getItem(8).getAmount()));
             }
         }
         return true;
     }
 
-    public ItemStack CreateAdvancedItem(int Amount, Material material, String DisplayName, ArrayList<String> lore, Boolean unbreakable, int SPEED, int HASTE, int HEALTH, int DEFENSE, int STRENGTH) throws SQLException, IOException {
+    public ItemStack CreateAdvancedItem(int Amount, Material material, String DisplayName, ArrayList<String> lore, Boolean unbreakable, int SPEED, int HASTE, int HEALTH, int DEFENSE, int STRENGTH)  {
         ItemStack is = new ItemStack(material, Amount);
         ItemMeta isMeta = is.getItemMeta();
         assert isMeta != null;
@@ -66,80 +64,55 @@ public final class StatsOverAll extends JavaPlugin {
         lore.add("");
         lore.add("");
         lore.add("");
-        lore.add(Color.WHITE + "SPEED: " + SPEED);
-        lore.add(Color.YELLOW + "MINING SPEED: " + HASTE);
-        lore.add(Color.RED + "HEALTH: " + HEALTH);
-        lore.add(Color.GRAY + "DEFENSE: " + DEFENSE);
-        lore.add(Color.ORANGE + "DAMAGE: " + STRENGTH);
+        lore.add(ChatColor.WHITE + "SPEED: " + SPEED);
+        lore.add(ChatColor.YELLOW + "MINING SPEED: " + HASTE);
+        lore.add(ChatColor.RED + "HEALTH: " + HEALTH);
+        lore.add(ChatColor.GRAY + "DEFENSE: " + DEFENSE);
+        lore.add(ChatColor.DARK_GREEN + "DAMAGE: " + STRENGTH);
         isMeta.setLore(lore);
         isMeta.setUnbreakable(unbreakable);
         is.setItemMeta(isMeta);
-        byte[] serialize = convertToBytes(is);
-        PreparedStatement ps = connection.prepareStatement("INSERT INTO customitemstacks VALUES (?)");
-        InputStream inputStream = new ByteArrayInputStream(serialize);
-        ps.setBinaryStream(1, inputStream);
-        ps.execute();
-        ps.close();
+        itemsAndStats.put(is, new int[]{SPEED, HASTE, HEALTH, DEFENSE, STRENGTH});
+        items.add(is);
         return is;
     }
-    public void updateStats() throws SQLException, IOException {
-        String query = "SELECT itemdata, speed, haste, health, defense, strength FROM customitemstacks";
-        
-        PreparedStatement psget = connection.prepareStatement(query, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-        ResultSet rs = psget.executeQuery();
+    public void updateStats(){
+
         for (Player p:
                 getServer().getOnlinePlayers()) {
-            byte[] boots = convertToBytes(p.getInventory().getBoots());
-            byte[] leggings = convertToBytes(p.getInventory().getLeggings());
-            byte[] chestplate = convertToBytes(p.getInventory().getChestplate());
-            byte[] helmet = convertToBytes(p.getInventory().getHelmet());
-            byte[] heldItem = convertToBytes(p.getItemInUse());
+
+            ItemStack boots = p.getInventory().getBoots();
+            ItemStack leggings = p.getInventory().getLeggings();
+            ItemStack chestplate = p.getInventory().getChestplate();
+            ItemStack helmet =  p.getInventory().getHelmet();
+            ItemStack heldItem = p.getInventory().getItem(p.getInventory().getHeldItemSlot());
+
+            ItemStack[] contents = {boots, leggings, chestplate, heldItem, helmet};
             int playerSpeed = 0;
             int playerHaste = 0;
             int playerHealth = 0;
             int playerDefense = 0;
             int playerStrength = 0;
-            rs.beforeFirst();
-            while(rs.next()) {
-                if (Objects.equals(rs.getBytes("data"), (boots))) {
-                    playerSpeed = playerSpeed + rs.getInt("speed");
-                    playerHaste = playerHaste + rs.getInt("haste");
-                    playerHealth = playerHealth + rs.getInt("health");
-                    playerDefense = playerDefense + rs.getInt("defense");
-                    playerStrength = playerStrength + rs.getInt("strength");
-                }
-                if (Objects.equals(rs.getBytes("data"), (leggings))) {
-                    playerSpeed = playerSpeed + rs.getInt("speed");
-                    playerHaste = playerHaste + rs.getInt("haste");
-                    playerHealth = playerHealth + rs.getInt("health");
-                    playerDefense = playerDefense + rs.getInt("defense");
-                    playerStrength = playerStrength + rs.getInt("strength");
-                }
-                if (Objects.equals(rs.getBytes("data"), (chestplate))) {
-                    playerSpeed = playerSpeed + rs.getInt("speed");
-                    playerHaste = playerHaste + rs.getInt("haste");
-                    playerHealth = playerHealth + rs.getInt("health");
-                    playerDefense = playerDefense + rs.getInt("defense");
-                    playerStrength = playerStrength + rs.getInt("strength");
-                }
-                if (Objects.equals(rs.getBytes("data"), (helmet))) {
-                    playerSpeed = playerSpeed + rs.getInt("speed");
-                    playerHaste = playerHaste + rs.getInt("haste");
-                    playerHealth = playerHealth + rs.getInt("health");
-                    playerDefense = playerDefense + rs.getInt("defense");
-                    playerStrength = playerStrength + rs.getInt("strength");
-                }
-                if (Objects.equals(rs.getBytes("data"), (heldItem))) {
-                    playerSpeed = playerSpeed + rs.getInt("speed");
-                    playerHaste = playerHaste + rs.getInt("haste");
-                    playerHealth = playerHealth + rs.getInt("health");
-                    playerDefense = playerDefense + rs.getInt("defense");
-                    playerStrength = playerStrength + rs.getInt("strength");
+            for (ItemStack items:
+                 items) {
+                for (ItemStack item : contents) {
+                    if (items.equals(item)) {
+                        int[] stats = itemsAndStats.get(items);
+                        playerSpeed = playerSpeed + stats[0];
+                        playerHaste = playerHaste + stats[1];
+                        playerHealth = playerHealth + stats[2];
+                        playerDefense = playerDefense + stats[3];
+                        playerStrength = playerStrength + stats[4];
+                    }
                 }
             }
+            p.removePotionEffect(PotionEffectType.SPEED);
+            p.removePotionEffect(PotionEffectType.FAST_DIGGING);
+            p.removePotionEffect(PotionEffectType.DAMAGE_RESISTANCE);
+            p.removePotionEffect(PotionEffectType.INCREASE_DAMAGE);
             p.addPotionEffect(PotionEffectType.SPEED.createEffect(Integer.MAX_VALUE, playerSpeed/4));
             p.addPotionEffect(PotionEffectType.FAST_DIGGING.createEffect(Integer.MAX_VALUE, playerHaste/4));
-            p.addPotionEffect(PotionEffectType.HEALTH_BOOST.createEffect(Integer.MAX_VALUE, playerHealth/4));
+            p.setMaxHealth(playerHealth+20);
             p.addPotionEffect(PotionEffectType.DAMAGE_RESISTANCE.createEffect(Integer.MAX_VALUE, playerDefense/4));
             p.addPotionEffect(PotionEffectType.INCREASE_DAMAGE.createEffect(Integer.MAX_VALUE, playerStrength/4));
         }
