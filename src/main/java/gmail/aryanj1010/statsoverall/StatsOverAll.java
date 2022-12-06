@@ -9,6 +9,9 @@ import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -18,59 +21,94 @@ import org.bukkit.potion.PotionEffectType;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Objects;
 
 
-public final class StatsOverAll extends JavaPlugin {
+public final class StatsOverAll extends JavaPlugin implements Listener {
 
     HashMap<ItemStack, int[]> itemsAndStats = new HashMap<>();
     ArrayList<ItemStack> items = new ArrayList<>();
 
+    ItemStack returnButton = new ItemStack(Material.PAPER);
+    ItemMeta rbMeta = returnButton.getItemMeta();
+    Inventory inv = getServer().createInventory(null, 18, "Item Creator");
     @Override
     public void onEnable() {
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this, this::updateStats, 0, 50);
+        getServer().getPluginManager().registerEvents(this, this);
 
-        
+        assert rbMeta != null;
+        rbMeta.setDisplayName(ChatColor.RED + "Create");
+        returnButton.setItemMeta(rbMeta);
     }
-
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (label.equalsIgnoreCase("create")) {
             if (sender instanceof Player) {
                 Player p = (Player) sender;
-                Inventory inv = p.getInventory();
+                //36-53
+                ItemStack amtItem = new ItemStack(Material.PAPER);
+                ItemMeta amtMeta = amtItem.getItemMeta();
+                assert amtMeta != null;
+                amtMeta.setDisplayName("amount");
+                amtItem.setItemMeta(amtMeta);
 
-                    p.sendMessage("command has ran");
-                    p.getInventory().addItem(CreateAdvancedItem(
-                            inv.getItem(0).getAmount(),
-                            inv.getItem(1).getType(),
-                            inv.getItem(2).getItemMeta().getDisplayName(),
-                            (ArrayList<String>) inv.getItem(3).getItemMeta().getLore(),
-                            true,
-                            inv.getItem(4).getAmount(),
-                            inv.getItem(5).getAmount(),
-                            inv.getItem(6).getAmount(),
-                            inv.getItem(7).getAmount(),
-                            inv.getItem(8).getAmount()));
+                ItemStack matItem = new ItemStack(Material.GRASS_BLOCK);
+                ItemMeta matMeta = matItem.getItemMeta();
+                assert matMeta != null;
+                matMeta.setDisplayName("Material");
+                matItem.setItemMeta(matMeta);
+
+                ItemStack dnItem = new ItemStack(Material.PAPER);
+                ItemMeta dnMeta = dnItem.getItemMeta();
+                assert dnMeta != null;
+                dnMeta.setDisplayName("Name");
+                dnItem.setItemMeta(dnMeta);
+
+                inv.setItem(0, amtItem);
+                inv.setItem(1, matItem);
+                inv.setItem(2, dnItem);
+                inv.setItem(3, new ItemStack(Material.LEATHER_BOOTS));
+                inv.setItem(4, new ItemStack(Material.GOLDEN_PICKAXE));
+                inv.setItem(5, new ItemStack(Material.RED_DYE));
+                inv.setItem(6, new ItemStack(Material.SHIELD));
+                inv.setItem(7, new ItemStack(Material.IRON_SWORD));
+                inv.setItem(17, returnButton);
+                p.openInventory(inv);
             }
         }
         return true;
     }
 
-    public ItemStack CreateAdvancedItem(int Amount, Material material, String DisplayName, ArrayList<String> lore, Boolean unbreakable, int SPEED, int HASTE, int HEALTH, int DEFENSE, int STRENGTH)  {
+    @EventHandler
+    public void onInventoryPress (InventoryClickEvent e) {
+        Player p = null;
+        Inventory inv = e.getInventory();
+        if (e.getInventory().equals(inv)) {
+            if (e.getWhoClicked() instanceof Player) {
+                p = (Player) e.getWhoClicked();
+            }
+            if (e.isLeftClick() && Objects.equals(e.getCurrentItem(), returnButton)) {
+                p.getInventory().addItem(CreateAdvancedItem(inv.getItem(9).getAmount(),inv.getItem(10).getType(),inv.getItem(11).getItemMeta().getDisplayName(),inv.getItem(12).getAmount(), inv.getItem(13).getAmount(),inv.getItem(14).getAmount(),inv.getItem(15).getAmount(),inv.getItem(16).getAmount()));
+                p.closeInventory();
+
+            }
+        }
+    }
+
+    public ItemStack CreateAdvancedItem(int Amount, Material material, String DisplayName, int SPEED, int HASTE, int HEALTH, int DEFENSE, int STRENGTH)  {
         ItemStack is = new ItemStack(material, Amount);
         ItemMeta isMeta = is.getItemMeta();
         assert isMeta != null;
         isMeta.setDisplayName(DisplayName);
-        lore.add("");
-        lore.add("");
-        lore.add("");
+        ArrayList<String> lore = new ArrayList<>();
         lore.add(ChatColor.WHITE + "SPEED: " + SPEED);
         lore.add(ChatColor.YELLOW + "MINING SPEED: " + HASTE);
         lore.add(ChatColor.RED + "HEALTH: " + HEALTH);
         lore.add(ChatColor.GRAY + "DEFENSE: " + DEFENSE);
         lore.add(ChatColor.DARK_GREEN + "DAMAGE: " + STRENGTH);
         isMeta.setLore(lore);
-        isMeta.setUnbreakable(unbreakable);
+        isMeta.setUnbreakable(true);
         is.setItemMeta(isMeta);
         itemsAndStats.put(is, new int[]{SPEED, HASTE, HEALTH, DEFENSE, STRENGTH});
         items.add(is);
